@@ -25,6 +25,4 @@ struct arguments {
     bool verbose;
 };
 
-void verbose(char *, ...);
-
 #endif //ARGS_H

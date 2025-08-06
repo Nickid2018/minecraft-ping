@@ -7,14 +7,7 @@
 
 #include <netinet/in.h>
 
-typedef struct host_and_port {
-    char *host;
-    unsigned short port;
-} host_and_port;
-
-host_and_port find_srv_record(char *dest);
-
-host_and_port parse_host_and_port(char *dest, int default_port, bool *srv_allowed);
+#include "mcping.h"
 
 void *get_in_addr(struct sockaddr *sa);
 
@@ -25,5 +18,9 @@ int write_var_int(char *buffer, int offset, int value);
 void write_long(char *buffer, long value);
 
 long read_long(char *buffer);
+
+int make_tcp_socket(host_and_port dest);
+
+void verbose(char *, ...);
 
 #endif //NETWORK_H

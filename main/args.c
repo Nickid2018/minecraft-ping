@@ -6,7 +6,7 @@
 #include <glib.h>
 #include <string.h>
 
-#include "network.h"
+#include "../core/mcping.h"
 
 #define ARG_KEY_NO_SRV 0x100001
 
@@ -22,7 +22,7 @@ static struct argp_option options[] = {
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
-    struct arguments *arguments = state->input;
+    struct arguments *args = state->input;
     switch (key) {
         case 't':
             if (arg == NULL) {
@@ -30,28 +30,28 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 break;
             }
             if (strcmp(arg, "bedrock") == 0 || strcmp(arg, "be") == 0) {
-                arguments->type_flags |= TYPE_BE_SERVER;
+                args->type_flags |= TYPE_BE_SERVER;
                 break;
             }
             if (strcmp(arg, "java") == 0 || strcmp(arg, "je") == 0) {
-                arguments->type_flags |= TYPE_JE_SERVER;
+                args->type_flags |= TYPE_JE_SERVER;
                 break;
             }
             if (strcmp(arg, "legacy") == 0) {
-                arguments->type_flags |= TYPE_LEGACY_SERVER;
+                args->type_flags |= TYPE_LEGACY_SERVER;
                 break;
             }
             if (strcmp(arg, "all") == 0) {
-                arguments->type_flags |= TYPE_ALL;
+                args->type_flags |= TYPE_ALL;
                 break;
             }
             argp_error(state, "Invalid type option: %s", arg);
             break;
         case 'v':
-            arguments->verbose = true;
+            args->verbose = true;
             break;
         case ARG_KEY_NO_SRV:
-            arguments->srv = false;
+            args->srv = false;
             break;
         case ARGP_KEY_ARG:
             if (state->arg_num >= 1)
@@ -59,7 +59,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             host_and_port test = parse_host_and_port(arg, 0, NULL);
             if (!test.host)
                 argp_error(state, "Invalid address");
-            arguments->dest_addr = arg;
+            args->dest_addr = arg;
             break;
         case ARGP_KEY_END:
             if (state->arg_num < 1)
@@ -72,11 +72,3 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 }
 
 struct argp argp = {options, parse_opt, args_doc, doc};
-
-void verbose(char *fmt, ...) {
-    if (!arguments.verbose) return;
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(stderr, g_strconcat(fmt, "\n", NULL), args);
-    va_end(args);
-}

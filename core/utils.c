@@ -3,12 +3,27 @@
 //
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <glib.h>
 #include <netdb.h>
 #include <resolv.h>
+#include <unistd.h>
 
-#include "args.h"
-#include "network.h"
+#include "utils.h"
+
+bool output_verbose = false;
+
+void set_mcping_verbose(bool verbose) {
+    output_verbose = verbose;
+}
+
+void verbose(char *fmt, ...) {
+    if (!output_verbose) return;
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(stderr, g_strconcat(fmt, "\n", NULL), args);
+    va_end(args);
+}
 
 GRegex *get_ipv4_regex() {
     return g_regex_new(
@@ -50,7 +65,6 @@ host_and_port parse_host_and_port(char *dest, int default_port, bool *srv_allowe
     if (maybe_ipv6) {
         if (srv_allowed) *srv_allowed = false;
         int port = default_port;
-        char *host_str = g_utf8_substring(dest, 0, maybe_ipv6 - dest + 1);
         char *only_ipv6 = g_utf8_substring(dest, 1, maybe_ipv6 - dest);
         if (dest[0] != '[')
             return (host_and_port){NULL, 0};
@@ -127,4 +141,48 @@ void write_long(char *buffer, long value) {
 long read_long(char *buffer) {
     long *p = (long *) buffer;
     return *p;
+}
+
+int make_tcp_socket(host_and_port dest) {
+    struct addrinfo hints = {0}, *servinfo, *p = NULL;
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    int rv = getaddrinfo(
+        dest.host, g_strdup_printf("%d", dest.port),
+        &hints, &servinfo
+    );
+    if (rv != 0) {
+        verbose("[Network] Get addr info failed for %s: %s", dest.host, gai_strerror(rv));
+        return -1;
+    }
+
+    int sockfd = -1;
+    char conn_buf[INET6_ADDRSTRLEN];
+    for (p = servinfo; p != NULL; p = p->ai_next) {
+        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+            verbose("[Network] Try to build socket failed: %s", strerror(errno));
+            continue;
+        }
+
+        inet_ntop(p->ai_family, get_in_addr(p->ai_addr), conn_buf, sizeof conn_buf);
+        if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+            verbose("[Network] Try to connect failed: %s", strerror(errno));
+            close(sockfd);
+            continue;
+        }
+
+        break;
+    }
+
+    if (p == NULL) {
+        verbose("[Network] Failed to connect %s port %d", dest.host, dest.port);
+        return -1;
+    }
+
+    inet_ntop(p->ai_family, get_in_addr(p->ai_addr), conn_buf, sizeof conn_buf);
+    freeaddrinfo(servinfo);
+    verbose("[Network] Connected to %s port %d", dest.host, dest.port);
+
+    return sockfd;
 }
