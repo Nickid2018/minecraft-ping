@@ -6,10 +6,6 @@ set(CMAKE_C_STANDARD 11)
 file(GLOB CORE_HEADERS "*.h")
 file(GLOB CORE_SOURCES "*.c")
 
-include(FetchContent)
-FetchContent_Declare(Base64 GIT_REPOSITORY git@github.com:elzoughby/Base64.git GIT_SHALLOW TRUE)
-FetchContent_MakeAvailable(Base64)
-
 find_package(PkgConfig)
 pkg_check_modules(glib REQUIRED IMPORTED_TARGET glib-2.0)
 link_libraries(PkgConfig::glib)

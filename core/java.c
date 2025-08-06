@@ -40,7 +40,7 @@ long make_up_packet(char *buffer, host_and_port dest) {
     return write;
 }
 
-cJSON *internal_try(host_and_port dest) {
+cJSON *find_java_mc_server(host_and_port dest) {
     int sockfd = make_tcp_socket(dest);
     if (sockfd == -1) return NULL;
 
@@ -148,25 +148,6 @@ cJSON *internal_try(host_and_port dest) {
     return root;
 }
 
-cJSON *find_java_mc_server(char *dest, bool srv) {
-    bool srv_allowed;
-    host_and_port no_srv = parse_host_and_port(dest, 25565, &srv_allowed);
-    if (srv && srv_allowed) {
-        host_and_port hap = find_srv_record(dest);
-        if (hap.host) {
-            cJSON *tried = internal_try(hap);
-            if (tried) {
-                cJSON_AddStringToObject(
-                    tried, "srv",
-                    g_strdup_printf("%s:%d", hap.host, hap.port)
-                );
-                return tried;
-            }
-        }
-    }
-    return internal_try(no_srv);
-}
-
 char *filter_text_component(cJSON *component) {
     if (cJSON_IsString(component))
         return cJSON_GetStringValue(component);
@@ -208,14 +189,6 @@ void print_java_mc_server_info(cJSON *server_info) {
     if (server_info == NULL) return;
 
     server_info = cJSON_Duplicate(server_info, true);
-
-    if (cJSON_HasObjectItem(server_info, "srv")) {
-        printf(
-            "The server uses SRV Record, request is redirected to %s\n",
-            cJSON_GetStringValue(cJSON_GetObjectItem(server_info, "srv"))
-        );
-        cJSON_DeleteItemFromObject(server_info, "srv");
-    }
 
     if (cJSON_HasObjectItem(server_info, "ping")) {
         printf(

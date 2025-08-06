@@ -186,3 +186,13 @@ int make_tcp_socket(host_and_port dest) {
 
     return sockfd;
 }
+
+unsigned char *data_url_to_bytes(char *data_url, unsigned long *out_len) {
+    char *start_point = g_utf8_strchr(data_url, -1, ',');
+    if (!start_point)
+        start_point = g_utf8_strchr(data_url, -1, ';');
+    if (!start_point)
+        return NULL;
+    start_point += 1;
+    return g_base64_decode(start_point, out_len);
+}

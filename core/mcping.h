@@ -15,9 +15,13 @@ typedef struct host_and_port {
     unsigned short port;
 } host_and_port;
 
-MCPING_EXPORT cJSON *find_java_mc_server(char *dest, bool srv);
+MCPING_EXPORT cJSON *find_java_mc_server(host_and_port dest);
 
 MCPING_EXPORT void print_java_mc_server_info(cJSON *server_info);
+
+MCPING_EXPORT cJSON *find_legacy_mc_server(host_and_port dest);
+
+MCPING_EXPORT void print_legacy_mc_server_info(cJSON *server_info);
 
 MCPING_EXPORT char *filter_text_component(cJSON *component);
 
@@ -26,5 +30,7 @@ MCPING_EXPORT host_and_port find_srv_record(char *dest);
 MCPING_EXPORT host_and_port parse_host_and_port(char *dest, int default_port, bool *srv_allowed);
 
 MCPING_EXPORT void set_mcping_verbose(bool verbose);
+
+MCPING_EXPORT unsigned char *data_url_to_bytes(char *data_url,  unsigned long *out_len);
 
 #endif //MCPING_H

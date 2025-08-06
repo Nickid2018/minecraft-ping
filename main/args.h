@@ -17,11 +17,16 @@ extern struct arguments arguments;
 #define TYPE_ALL 0x8
 
 struct arguments {
+    // Request
     char *dest_addr;
     int type_flags;
-
     bool srv;
 
+    // Output
+    char *fav_output_file;
+    bool fav_to_stdout;
+
+    // Debug
     bool verbose;
 };
 

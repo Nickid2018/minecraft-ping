@@ -9,6 +9,7 @@
 #include "../core/mcping.h"
 
 #define ARG_KEY_NO_SRV 0x100001
+#define ARG_KEY_FAV_TO_STDOUT 0x100002
 
 const char *argp_program_version = "MCPing 1.0";
 static char doc[] = "Ping to a Minecraft Server";
@@ -17,6 +18,9 @@ static char args_doc[] = "DESTADDR";
 static struct argp_option options[] = {
     {"type", 't', "java|je|bedrock|be|legacy|all", OPTION_ARG_OPTIONAL, "Ping server type"},
     {"nosrv", ARG_KEY_NO_SRV, 0, OPTION_ARG_OPTIONAL, "Do not lookup SRV Record"},
+    {"favicon", 'f', "FILE", OPTION_ARG_OPTIONAL, "Output favicon to file"},
+    {"favicon-out", ARG_KEY_FAV_TO_STDOUT, 0, OPTION_ARG_OPTIONAL, "Output favicon to standard output"},
+    {"fo", ARG_KEY_FAV_TO_STDOUT, 0, OPTION_ARG_OPTIONAL | OPTION_ALIAS, "Output favicon to standard output"},
     {"verbose", 'v', 0, OPTION_ARG_OPTIONAL, "Verbose output"},
     {0}
 };
@@ -50,8 +54,18 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         case 'v':
             args->verbose = true;
             break;
+        case 'f':
+            if (args->fav_to_stdout)
+                argp_error(state, "-f and --fo can't coexist");
+            args->fav_output_file = arg;
+            break;
         case ARG_KEY_NO_SRV:
             args->srv = false;
+            break;
+        case ARG_KEY_FAV_TO_STDOUT:
+            if (args->fav_output_file)
+                argp_error(state, "-f and --fo can't coexist");
+            args->fav_to_stdout = true;
             break;
         case ARGP_KEY_ARG:
             if (state->arg_num >= 1)
