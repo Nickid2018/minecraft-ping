@@ -165,6 +165,10 @@ char *filter_text_component(cJSON *component) {
     }
     if (cJSON_IsObject(component)) {
         GPtrArray *array = g_ptr_array_new_with_free_func(g_free);
+        if (cJSON_HasObjectItem(component, "text"))
+            g_ptr_array_add(array, cJSON_GetStringValue(cJSON_GetObjectItem(component, "text")));
+        if (cJSON_HasObjectItem(component, "translatable"))
+            g_ptr_array_add(array, cJSON_GetStringValue(cJSON_GetObjectItem(component, "translatable")));
         if (cJSON_HasObjectItem(component, "extra")) {
             cJSON *extra = cJSON_GetObjectItem(component, "extra");
             for (int i = 0; i < cJSON_GetArraySize(extra); i++) {
@@ -172,10 +176,6 @@ char *filter_text_component(cJSON *component) {
                 g_ptr_array_add(array, filter_text_component(item));
             }
         }
-        if (cJSON_HasObjectItem(component, "text"))
-            g_ptr_array_add(array, cJSON_GetStringValue(cJSON_GetObjectItem(component, "text")));
-        if (cJSON_HasObjectItem(component, "translatable"))
-            g_ptr_array_add(array, cJSON_GetStringValue(cJSON_GetObjectItem(component, "translatable")));
         g_ptr_array_add(array, NULL);
         char **strv = (char **) g_ptr_array_steal(array, NULL);
         char *result = g_strjoinv("", strv);

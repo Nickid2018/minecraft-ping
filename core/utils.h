@@ -9,6 +9,8 @@
 
 #include "mcping.h"
 
+struct addrinfo;
+
 void *get_in_addr(struct sockaddr *sa);
 
 int read_var_int(const char *buffer, int offset, int *result);

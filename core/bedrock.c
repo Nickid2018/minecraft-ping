@@ -160,6 +160,14 @@ cJSON *find_bedrock_mc_server(host_and_port dest) {
     return root;
 }
 
+char *remove_format_char(char *source) {
+    return g_regex_replace(
+        g_regex_new("\u00a7.", 0, 0, NULL),
+        source, strlen(source),
+        0, "", 0, NULL
+    );
+}
+
 void print_bedrock_mc_server_info(cJSON *server_info) {
     if (server_info == NULL) return;
 
@@ -174,8 +182,8 @@ void print_bedrock_mc_server_info(cJSON *server_info) {
         cJSON *motd1 = cJSON_GetObjectItem(server_info, "motd1");
         cJSON *motd2 = cJSON_GetObjectItem(server_info, "motd2");
         printf("Message Of The Day:\n");
-        printf("\t%s\n", cJSON_GetStringValue(motd1));
-        printf("\t%s\n", cJSON_GetStringValue(motd2));
+        printf("\t%s\n", remove_format_char(cJSON_GetStringValue(motd1)));
+        printf("\t%s\n", remove_format_char(cJSON_GetStringValue(motd2)));
     }
 
     if (cJSON_HasObjectItem(server_info, "version")) {
