@@ -23,6 +23,10 @@ MCPING_EXPORT cJSON *find_legacy_mc_server(host_and_port dest);
 
 MCPING_EXPORT void print_legacy_mc_server_info(cJSON *server_info);
 
+MCPING_EXPORT cJSON *find_bedrock_mc_server(host_and_port dest);
+
+MCPING_EXPORT void print_bedrock_mc_server_info(cJSON *server_info);
+
 MCPING_EXPORT char *filter_text_component(cJSON *component);
 
 MCPING_EXPORT host_and_port find_srv_record(char *dest);

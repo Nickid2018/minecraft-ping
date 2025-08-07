@@ -103,7 +103,7 @@ cJSON *find_java_mc_server(host_and_port dest) {
     g_byte_array_free(byte_array, TRUE);
     verbose("[JE] Received server JSON string: %s", server_json);
 
-    char ping_packet[10];
+    unsigned char ping_packet[10];
     ping_packet[0] = 9;
     ping_packet[1] = 1; // ping
     struct timeval tp;

@@ -69,11 +69,25 @@ int main(const int argc, char **argv) {
                 }
             }
         }
+
         if (no_srv.host) {
             bool suc = find_and_try_output(no_srv, find_java_mc_server, print_java_mc_server_info);
             if (suc && success_return) return 0;
             success |= suc;
         }
+
+        if (!success && !arguments.fav_to_stdout)
+            printf("No Java Server found\n");
     }
+
+    if (arguments.type_flags & TYPE_BE_SERVER) {
+        host_and_port addr = parse_host_and_port(arguments.dest_addr, 19132, NULL);
+        bool suc = find_and_try_output(addr, find_bedrock_mc_server, print_bedrock_mc_server_info);
+        if (suc && success_return) return 0;
+        success |= suc;
+        if (!success && !arguments.fav_to_stdout)
+            printf("No Bedrock Server found\n");
+    }
+
     return success ? 0 : -1;
 }

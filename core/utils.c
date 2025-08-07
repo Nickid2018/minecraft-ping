@@ -4,6 +4,7 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <glib.h>
 #include <netdb.h>
 #include <resolv.h>
@@ -100,7 +101,7 @@ host_and_port parse_host_and_port(char *dest, int default_port, bool *srv_allowe
 
 void *get_in_addr(struct sockaddr *sa) {
     if (sa->sa_family == AF_INET) {
-        return &(((struct sockaddr_in *) sa)->sin_addr);
+        return &((struct sockaddr_in *) sa)->sin_addr;
     }
 
     return &((struct sockaddr_in6 *) sa)->sin6_addr;
@@ -133,46 +134,112 @@ int write_var_int(char *buffer, int offset, int value) {
     return p;
 }
 
-void write_long(char *buffer, long value) {
-    long *p = (long *) buffer;
-    *p = value;
+void write_long(unsigned char *buffer, int64_t value) {
+    for (int i = 0; i < 8; ++i) {
+        buffer[7 - i] = (unsigned char) (value >> (i * 8) & 0xFF);
+    }
 }
 
-long read_long(char *buffer) {
-    long *p = (long *) buffer;
-    return *p;
+int64_t read_long(const unsigned char *buffer) {
+    int64_t result = 0;
+    for (int i = 0; i < 8; ++i) {
+        result |= (int64_t) buffer[i] << ((7 - i) * 8);
+    }
+    return result;
 }
 
-int make_tcp_socket(host_and_port dest) {
-    struct addrinfo hints = {0}, *servinfo, *p = NULL;
+bool get_server_info(host_and_port dest, int socket_type, struct addrinfo **server_info) {
+    struct addrinfo hints = {0};
     hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-
+    hints.ai_socktype = socket_type;
     int rv = getaddrinfo(
         dest.host, g_strdup_printf("%d", dest.port),
-        &hints, &servinfo
+        &hints, server_info
     );
     if (rv != 0) {
         verbose("[Network] Get addr info failed for %s: %s", dest.host, gai_strerror(rv));
-        return -1;
+        return false;
     }
+    return true;
+}
 
-    int sockfd = -1;
+int make_tcp_socket(host_and_port dest) {
+    struct addrinfo *servinfo, *p = NULL;
+
+    if (!get_server_info(dest, SOCK_STREAM, &servinfo)) return -1;
+
+    int fd = -1;
     char conn_buf[INET6_ADDRSTRLEN];
     for (p = servinfo; p != NULL; p = p->ai_next) {
-        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+        if ((fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
             verbose("[Network] Try to build socket failed: %s", strerror(errno));
             continue;
         }
 
         inet_ntop(p->ai_family, get_in_addr(p->ai_addr), conn_buf, sizeof conn_buf);
-        if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-            verbose("[Network] Try to connect failed: %s", strerror(errno));
-            close(sockfd);
+
+        long flags = fcntl(fd, F_GETFL, 0);
+        if (flags < 0) {
+            verbose("[Network] Get flag failed (fnctl): %s", strerror(errno));
+            continue;
+        }
+        if (fcntl(fd, F_SETFL, flags | FNONBLOCK) < 0) {
+            verbose("[Network] Set flag NONBLOCK failed (fnctl): %s", strerror(errno));
             continue;
         }
 
-        break;
+        int res = connect(fd, p->ai_addr, p->ai_addrlen);
+        bool success = true;
+        if (res < 0) {
+            if (errno == EINPROGRESS) {
+                struct timeval tv;
+                tv.tv_sec = 5;
+                tv.tv_usec = 0;
+                fd_set set;
+                FD_ZERO(&set);
+                FD_SET(fd, &set);
+                res = select(fd + 1, NULL, &set, NULL, &tv);
+                if (res < 0 && errno != EINTR) {
+                    verbose("[Network] Error connecting: %s", strerror(errno));
+                    success = false;
+                } else if (res > 0) {
+                    socklen_t opt_len = sizeof(int);
+                    int opt_val;
+                    if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &opt_val, &opt_len) < 0) {
+                        verbose("[Network] Error getsockopt: %s", strerror(errno));
+                        success = false;
+                        break;
+                    }
+                    if (opt_val) {
+                        verbose("[Network] Error in delayed connection: %s", strerror(opt_val));
+                        success = false;
+                    }
+                } else {
+                    verbose("[Network] Connection timeout after 5s");
+                    success = false;
+                }
+            } else {
+                verbose("[Network] Error connecting: %s", strerror(errno));
+                success = false;
+            }
+        }
+
+        if (success) {
+            flags = fcntl(fd, F_GETFL, 0);
+            if (flags < 0) {
+                verbose("[Network] Get flag failed (fnctl): %s", strerror(errno));
+                close(fd);
+                continue;
+            }
+            if (fcntl(fd, F_SETFL, flags & ~FNONBLOCK) < 0) {
+                verbose("[Network] Set flag BLOCK failed (fnctl): %s", strerror(errno));
+                close(fd);
+                continue;
+            }
+            break;
+        } else {
+            close(fd);
+        }
     }
 
     if (p == NULL) {
@@ -184,7 +251,7 @@ int make_tcp_socket(host_and_port dest) {
     freeaddrinfo(servinfo);
     verbose("[Network] Connected to %s port %d", dest.host, dest.port);
 
-    return sockfd;
+    return fd;
 }
 
 unsigned char *data_url_to_bytes(char *data_url, unsigned long *out_len) {
