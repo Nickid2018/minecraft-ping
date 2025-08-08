@@ -1,0 +1,66 @@
+name: Build
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-check:
+    runs-on: ubuntu-latest
+    if: "!startsWith(github.ref, 'refs/tags/') || !contains(github.event.head_commit.message, '[skip build]')"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Deps
+        run: sudo apt-get update & sudo apt-get install cmake libcjson-dev make
+      - name: Configure
+        run: cmake -S . -B build
+      - name: Build
+        run: make -j8
+        working-directory: build
+
+  release:
+    runs-on: ubuntu-latest
+    if: "startsWith(github.ref, 'refs/tags/')"
+    permissions: write-all
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Deps
+        run: sudo apt-get update & sudo apt-get install cmake libcjson-dev make
+      - name: Configure (Debug)
+        if: "contains(github.ref, 'beta')"
+        run: cmake -S . -B build
+      - name: Configure (Release)
+        if: "!contains(github.ref, 'beta')"
+        run: cmake -DCMAKE_BUILD_TYPE=Release -S . -B build
+      - name: Build
+        run: make -j8
+        working-directory: build
+      - name: Install
+        run: cmake --install . -v --prefix ./.pkg/usr
+      - name: Get tag name
+        id: process-name
+        env:
+          REF: ${{ github.ref }}
+        run: echo "NAME=${REF##*/}" >> $GITHUB_OUTPUT
+      - name: Build DEB
+        uses: jiro4989/build-deb-action@v4
+        id: deb-build
+        with:
+          package: minecraft-ping
+          package_root: .pkg
+          maintainer: Nickid2018
+          version: ${{ steps.process-name.outputs.NAME }}
+      - name: Get Tag Message
+        id: tag
+        run: |
+          git fetch --tags --force
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "TAG_MESSAGE<<$EOF"$'\n'"$(git for-each-ref $GITHUB_REF --format='%(contents)' | sed -E '/^-----BEGIN PGP SIGNATURE-----$/,$d')"$'\n'$EOF >> $GITHUB_OUTPUT
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ steps.process-name.outputs.NAME }}
+          prerelease: ${{ contains(github.ref, 'beta') }}
+          body: ${{ steps.tag.outputs.TAG_MESSAGE }}
+          files: ${{ steps.deb-build.outputs.file_name }}

@@ -1,4 +1,5 @@
 #include <cJSON.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "args.h"
@@ -23,12 +24,12 @@ bool find_and_try_output(host_and_port addr, cJSON *(*find)(host_and_port), void
                            : fopen(arguments.fav_output_file, "wb");
             if (!fp) {
                 perror("File opening failed");
-                return true;
+                exit(-1);
             }
             fwrite(buf, 1, size, fp);
             if (ferror(fp)) {
                 perror("Writing failed");
-                return true;
+                exit(-1);
             }
             fclose(fp);
         }
@@ -74,10 +75,11 @@ int main(const int argc, char **argv) {
             bool suc = find_and_try_output(no_srv, find_java_mc_server, print_java_mc_server_info);
             if (suc && success_return) return 0;
             success |= suc;
+            arguments.type_flags &= ~(suc * TYPE_LEGACY_SERVER);
         }
 
-        if (!success && !arguments.fav_to_stdout)
-            printf("No Java Server found\n");
+        if (!success)
+            PRINT("No Java Server found\n");
     }
 
     if (arguments.type_flags & TYPE_BE_SERVER) {
@@ -85,8 +87,17 @@ int main(const int argc, char **argv) {
         bool suc = find_and_try_output(addr, find_bedrock_mc_server, print_bedrock_mc_server_info);
         if (suc && success_return) return 0;
         success |= suc;
-        if (!success && !arguments.fav_to_stdout)
-            printf("No Bedrock Server found\n");
+        if (!success)
+            PRINT("No Bedrock Server found\n");
+    }
+
+    if (arguments.type_flags & TYPE_LEGACY_SERVER) {
+        host_and_port addr = parse_host_and_port(arguments.dest_addr, 25565, NULL);
+        bool suc = find_and_try_output(addr, find_legacy_mc_server, print_legacy_mc_server_info);
+        if (suc && success_return) return 0;
+        success |= suc;
+        if (!success)
+            PRINT("No Java Legacy Server found\n");
     }
 
     return success ? 0 : -1;

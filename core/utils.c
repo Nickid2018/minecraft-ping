@@ -236,6 +236,15 @@ int make_tcp_socket(host_and_port dest) {
                 close(fd);
                 continue;
             }
+
+            struct timeval timeout;
+            timeout.tv_sec = 10;
+            timeout.tv_usec = 0;
+            if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+                verbose("[Network] Can't set socket timeout: %s", strerror(errno));
+                close(fd);
+                continue;
+            }
             break;
         } else {
             close(fd);

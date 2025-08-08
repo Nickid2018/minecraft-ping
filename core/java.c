@@ -108,8 +108,8 @@ cJSON *find_java_mc_server(host_and_port dest) {
     ping_packet[1] = 1; // ping
     struct timeval tp;
     gettimeofday(&tp, NULL);
-    long ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-    write_long(ping_packet + 2, ms);
+    long send_time = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    write_long(ping_packet + 2, send_time);
     len = send(sockfd, ping_packet, 10, 0);
     FAIL_FAST
     verbose("[JE] Sent ping request");
@@ -131,8 +131,8 @@ cJSON *find_java_mc_server(host_and_port dest) {
     }
     long pong = read_long(buffer + 2);
     gettimeofday(&tp, NULL);
-    ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-    long ping_time = ms - pong;
+    send_time = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    long ping_time = send_time - pong;
     verbose("[JE] Received pong packet, ping time = %d", ping_time);
     close(sockfd);
 
