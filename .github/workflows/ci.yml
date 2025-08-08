@@ -52,6 +52,9 @@ jobs:
           package_root: .pkg
           maintainer: Nickid2018
           version: ${{ steps.process-name.outputs.NAME }}
+          homepage: 'https://github.com/Nickid2018/minecraft-ping'
+          desc: 'A tool for minecraft status pinging'
+          depends: 'libcjson1'
       - name: Get Tag Message
         id: tag
         run: |
