@@ -6,7 +6,7 @@ on:
 jobs:
   build-check:
     runs-on: ubuntu-latest
-    if: "!startsWith(github.ref, 'refs/tags/') || !contains(github.event.head_commit.message, '[skip build]')"
+    if: "!startsWith(github.ref, 'refs/tags/') && !contains(github.event.head_commit.message, '[skip build]')"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,7 +37,8 @@ jobs:
         run: make -j8
         working-directory: build
       - name: Install
-        run: cmake --install . -v --prefix ./.pkg/usr
+        run: cmake --install . -v --prefix ../.pkg/usr
+        working-directory: build
       - name: Get tag name
         id: process-name
         env:
