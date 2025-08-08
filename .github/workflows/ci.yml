@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-check:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     if: "!startsWith(github.ref, 'refs/tags/') && !contains(github.event.head_commit.message, '[skip build]')"
     steps:
       - name: Checkout
@@ -19,7 +19,7 @@ jobs:
         working-directory: build
 
   release:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     if: "startsWith(github.ref, 'refs/tags/')"
     permissions: write-all
     steps:
