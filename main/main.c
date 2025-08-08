@@ -54,7 +54,7 @@ int main(const int argc, char **argv) {
         bool srv_allowed;
         host_and_port no_srv = parse_host_and_port(arguments.dest_addr, 25565, &srv_allowed);
         if (arguments.srv && srv_allowed) {
-            host_and_port srv = find_srv_record(arguments.dest_addr);
+            host_and_port srv = find_mc_srv_record(arguments.dest_addr);
             if (srv.host) {
                 PRINT(
                     "The server uses SRV Record, try to find server at %s:%d\n",

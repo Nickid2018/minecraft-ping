@@ -193,7 +193,7 @@ void print_java_mc_server_info(cJSON *server_info) {
     if (cJSON_HasObjectItem(server_info, "ping")) {
         printf(
             "Ping to server (Java) is %dms\n",
-            (int) cJSON_GetNumberValue(cJSON_GetObjectItem(server_info, "ping"))
+            cJSON_GetObjectItem(server_info, "ping")->valueint
         );
         cJSON_DeleteItemFromObject(server_info, "ping");
     }
@@ -214,7 +214,7 @@ void print_java_mc_server_info(cJSON *server_info) {
         cJSON *protocol = cJSON_GetObjectItem(version, "protocol");
         cJSON *name = cJSON_GetObjectItem(version, "name");
         printf("Version:\n");
-        printf("\t%-20s: %d\n", "Protocol Version", (int) cJSON_GetNumberValue(protocol));
+        printf("\t%-20s: %d\n", "Protocol Version", protocol->valueint);
         printf("\t%-20s: %s\n", "Version Name", cJSON_GetStringValue(name));
         cJSON_DeleteItemFromObject(server_info, "version");
     } else {
@@ -227,8 +227,8 @@ void print_java_mc_server_info(cJSON *server_info) {
         cJSON *max = cJSON_GetObjectItem(players, "max");
         cJSON *sample = cJSON_GetObjectItem(players, "sample");
         printf("Online players:\n");
-        printf("\t%-20s: %d\n", "Online Count", (int) cJSON_GetNumberValue(online));
-        printf("\t%-20s: %d\n", "Max Players", (int) cJSON_GetNumberValue(max));
+        printf("\t%-20s: %d\n", "Online Count", online->valueint);
+        printf("\t%-20s: %d\n", "Max Players", max->valueint);
         if (sample) {
             int array_count = cJSON_GetArraySize(sample);
             for (int i = 0; i < array_count; i++) {

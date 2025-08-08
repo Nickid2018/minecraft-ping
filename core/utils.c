@@ -33,7 +33,7 @@ GRegex *get_ipv4_regex() {
     );
 }
 
-host_and_port find_srv_record(char *dest) {
+host_and_port find_mc_srv_record(char *dest) {
     res_init();
 
     verbose("[SRV] Start Querying SRV Record for %s", dest);

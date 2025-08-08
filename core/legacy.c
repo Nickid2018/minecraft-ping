@@ -208,7 +208,7 @@ void print_legacy_mc_server_info(cJSON *server_info) {
     if (cJSON_HasObjectItem(server_info, "ping")) {
         printf(
             "Ping to server (Legacy) is %dms\n",
-            (int) cJSON_GetNumberValue(cJSON_GetObjectItem(server_info, "ping"))
+            cJSON_GetObjectItem(server_info, "ping")->valueint
         );
     }
 
@@ -222,7 +222,7 @@ void print_legacy_mc_server_info(cJSON *server_info) {
     printf(
         "\t%-20s: %d\n",
         "Response Version",
-        (int) cJSON_GetNumberValue(cJSON_GetObjectItem(server_info, "resp_version"))
+        cJSON_GetObjectItem(server_info, "resp_version")->valueint
     );
 
     if (cJSON_HasObjectItem(server_info, "protocol")) {

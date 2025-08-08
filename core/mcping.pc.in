@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/@LIB_INSTALL_DIR@
+includedir=${prefix}/@INCLUDE_INSTALL_DIR@
+
+Name: mcping
+Description: A library for minecraft server pinging
+Version: @PROJECT_VERSION@
+Requires: libcjson, glib-2.0
+Cflags: -I${includedir} @CFLAGS_PRIVATE@
+Libs: -L${libdir} -lmcping @LIBS_PRIVATE@

@@ -174,7 +174,7 @@ void print_bedrock_mc_server_info(cJSON *server_info) {
     if (cJSON_HasObjectItem(server_info, "ping")) {
         printf(
             "Ping to server (Bedrock) is %dms\n",
-            (int) cJSON_GetNumberValue(cJSON_GetObjectItem(server_info, "ping"))
+            cJSON_GetObjectItem(server_info, "ping")->valueint
         );
     }
 
