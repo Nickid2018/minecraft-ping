@@ -11,7 +11,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install Deps
-        run: sudo apt-get update & sudo apt-get install cmake libcjson-dev make
+        run: sudo apt-get update & sudo apt-get install cmake libcjson-dev libglib2.0-dev make
       - name: Configure
         run: cmake -S . -B build
       - name: Build
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install Deps
-        run: sudo apt-get update & sudo apt-get install cmake libcjson-dev make
+        run: sudo apt-get update & sudo apt-get install cmake libcjson-dev libglib2.0-dev make
       - name: Configure (Debug)
         if: "contains(github.ref, 'beta')"
         run: cmake -S . -B build
