@@ -15,14 +15,12 @@ pub struct PlayerArgs {
     hide_anonymous: bool,
 }
 
-pub struct Player {
-    no_player_list: bool,
-    no_uuid: bool,
-    hide_anonymous: bool,
+pub struct Player<'a> {
+    args: &'a PlayerArgs,
 }
 
 #[async_trait]
-impl Analyzer for Player {
+impl Analyzer for Player<'_> {
     fn enabled(&self, payload: &StatusPayload) -> bool {
         payload.max_players.is_some() && payload.player_count.is_some()
     }
@@ -33,14 +31,15 @@ impl Analyzer for Player {
             payload.player_count.unwrap(),
             payload.max_players.unwrap()
         );
-        if !self.no_player_list
+        if !self.args.no_player_list
             && let Some(players) = payload.players.as_ref()
         {
             for player in players {
-                if self.hide_anonymous && player.uuid == "00000000-0000-0000-0000-000000000000" {
+                if self.args.hide_anonymous && player.uuid == "00000000-0000-0000-0000-000000000000"
+                {
                     continue;
                 }
-                if self.no_uuid {
+                if self.args.no_uuid {
                     log::info!("  {}", player.id);
                 } else {
                     log::info!("  {:20} ({})", player.id, player.uuid);
@@ -50,12 +49,8 @@ impl Analyzer for Player {
     }
 }
 
-impl Player {
-    pub fn new(args: &PlayerArgs) -> Player {
-        Player {
-            no_player_list: args.no_player_list,
-            no_uuid: args.no_uuid,
-            hide_anonymous: args.hide_anonymous,
-        }
+impl Player<'_> {
+    pub fn new(args: &'_ PlayerArgs) -> Player<'_> {
+        Player { args }
     }
 }

@@ -149,18 +149,17 @@ pub struct JavaModeArgs {
     pub protocol: i32,
 }
 
-pub struct JavaQuery {
-    pub no_srv: bool,
-    pub protocol: i32,
+pub struct JavaQuery<'a> {
+    args: &'a JavaModeArgs,
 }
 
 #[async_trait]
-impl QueryModeHandler for JavaQuery {
+impl QueryModeHandler for JavaQuery<'_> {
     async fn do_query(&self, addr: &str) -> std::io::Result<StatusPayload> {
         let mut je_res = resolve_addr(addr, 25565);
         let je_address = je_res.get_or_insert_default();
 
-        if !self.no_srv {
+        if !self.args.no_srv {
             let srv_res = resolve_server_srv(addr).await;
             let srv = srv_res
                 .iter()
@@ -169,15 +168,12 @@ impl QueryModeHandler for JavaQuery {
             je_address.splice(0..0, srv);
         }
 
-        check_java_server(je_address, self.protocol).await
+        check_java_server(je_address, self.args.protocol).await
     }
 }
 
-impl JavaQuery {
-    pub fn new(args: &JavaModeArgs) -> JavaQuery {
-        JavaQuery {
-            no_srv: args.no_srv,
-            protocol: args.protocol,
-        }
+impl JavaQuery<'_> {
+    pub fn new(args: &'_ JavaModeArgs) -> JavaQuery<'_> {
+        JavaQuery { args }
     }
 }

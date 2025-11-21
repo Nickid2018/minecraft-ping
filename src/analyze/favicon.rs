@@ -11,8 +11,8 @@ pub struct FaviconArgs {
     favicon: Option<String>,
 }
 
-pub struct Favicon {
-    favicon: Option<String>,
+pub struct Favicon<'a> {
+    args: &'a FaviconArgs,
 }
 
 async fn do_favicon_output(favicon: &str, output: &str) -> std::io::Result<()> {
@@ -24,15 +24,15 @@ async fn do_favicon_output(favicon: &str, output: &str) -> std::io::Result<()> {
 }
 
 #[async_trait]
-impl Analyzer for Favicon {
+impl Analyzer for Favicon<'_> {
     fn enabled(&self, payload: &StatusPayload) -> bool {
-        self.favicon.is_some() && payload.favicon.is_some()
+        self.args.favicon.is_some() && payload.favicon.is_some()
     }
 
     async fn analyze(&self, payload: &StatusPayload) {
         match do_favicon_output(
             &payload.favicon.as_ref().unwrap(),
-            &self.favicon.as_ref().unwrap(),
+            &self.args.favicon.as_ref().unwrap(),
         )
         .await
         {
@@ -42,10 +42,8 @@ impl Analyzer for Favicon {
     }
 }
 
-impl Favicon {
-    pub fn new(args: &FaviconArgs) -> Favicon {
-        Favicon {
-            favicon: args.favicon.clone(),
-        }
+impl Favicon<'_> {
+    pub fn new(args: &'_ FaviconArgs) -> Favicon<'_> {
+        Favicon { args }
     }
 }

@@ -134,17 +134,17 @@ async fn check_legacy_server(addr_vec: &Vec<SocketAddr>) -> std::io::Result<Stat
     Err(std::io::Error::new(ErrorKind::NotFound, "No server found"))
 }
 
-pub struct LegacyQuery {
-    pub no_srv: bool,
+pub struct LegacyQuery<'a> {
+    args: &'a JavaModeArgs,
 }
 
 #[async_trait]
-impl QueryModeHandler for LegacyQuery {
+impl QueryModeHandler for LegacyQuery<'_> {
     async fn do_query(&self, addr: &str) -> std::io::Result<StatusPayload> {
         let mut res = resolve_addr(addr, 25565);
         let addrs = res.get_or_insert_default();
 
-        if !self.no_srv {
+        if !self.args.no_srv {
             let srv_res = resolve_server_srv(addr).await;
             let srv = srv_res
                 .iter()
@@ -157,10 +157,8 @@ impl QueryModeHandler for LegacyQuery {
     }
 }
 
-impl LegacyQuery {
-    pub fn new(args: &JavaModeArgs) -> LegacyQuery {
-        LegacyQuery {
-            no_srv: args.no_srv,
-        }
+impl LegacyQuery<'_> {
+    pub fn new(args: &'_ JavaModeArgs) -> LegacyQuery<'_> {
+        LegacyQuery { args }
     }
 }

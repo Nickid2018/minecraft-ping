@@ -51,11 +51,11 @@ pub trait Analyzer {
     async fn analyze(&self, payload: &StatusPayload);
 }
 
-pub struct AnalyzerTools {
-    analyzers: Vec<Box<dyn Analyzer>>,
+pub struct AnalyzerTools<'a> {
+    analyzers: Vec<Box<dyn Analyzer + 'a>>,
 }
 
-impl AnalyzerTools {
+impl AnalyzerTools<'_> {
     pub async fn analyze(&self, payload: &StatusPayload) {
         for analyzer in self.analyzers.iter() {
             if analyzer.enabled(&payload) {
@@ -86,7 +86,7 @@ pub struct AnalyzerArgs {
     favicon_args: FaviconArgs,
 }
 
-pub fn init_analyzer_tools(args: &AnalyzerArgs) -> AnalyzerTools {
+pub fn init_analyzer_tools<'a>(args: &'_ AnalyzerArgs) -> AnalyzerTools<'_> {
     let mut analyzers: Vec<Box<dyn Analyzer>> = Vec::new();
 
     if args.analyzers.contains(&AvailableAnalyzers::PING) {

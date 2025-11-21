@@ -24,11 +24,11 @@ trait QueryModeHandler {
     async fn do_query(&self, addr: &str) -> std::io::Result<StatusPayload>;
 }
 
-pub struct QueryEngine {
-    modes: HashMap<QueryMode, Box<dyn QueryModeHandler>>,
+pub struct QueryEngine<'a> {
+    modes: HashMap<QueryMode, Box<dyn QueryModeHandler + 'a>>,
 }
 
-impl QueryEngine {
+impl QueryEngine<'_> {
     pub async fn query(&self, mode: QueryMode, addr: &str) -> std::io::Result<StatusPayload> {
         if let Some(handler) = self.modes.get(&mode) {
             handler.do_query(addr).await
@@ -47,7 +47,7 @@ pub struct ModeArgs {
     java: JavaModeArgs,
 }
 
-pub fn init_query_engine(args: &ModeArgs) -> QueryEngine {
+pub fn init_query_engine(args: &'_ ModeArgs) -> QueryEngine<'_> {
     let mut modes: HashMap<QueryMode, Box<dyn QueryModeHandler>> = HashMap::new();
     modes.insert(JAVA, Box::new(JavaQuery::new(&args.java)));
     modes.insert(LEGACY, Box::new(LegacyQuery::new(&args.java)));
