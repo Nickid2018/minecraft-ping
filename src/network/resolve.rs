@@ -1,42 +1,8 @@
 use regex::Regex;
 use std::net::{SocketAddr, ToSocketAddrs};
 
-#[cfg(target_os = "linux")]
-use srv_rs::{SrvClient, resolver::libresolv::LibResolv};
-#[cfg(target_os = "windows")]
 use trust_dns_resolver::{AsyncResolver, system_conf};
 
-#[cfg(target_os = "linux")]
-pub async fn resolve_server_srv(addr: &str) -> Vec<String> {
-    let client = SrvClient::<LibResolv>::new(format!("_minecraft._tcp.{}", addr));
-    let record = match client.get_srv_records().await {
-        Ok(record) => record,
-        Err(e) => {
-            log::debug!("Error getting srv records: {}", e);
-            return Vec::new();
-        }
-    };
-
-    log::debug!("{} srv record(s) found:", record.0.len());
-    record.0.iter().for_each(|srv| {
-        log::debug!(
-            "    {}:{} (Priority: {}, Weight: {})",
-            srv.target,
-            srv.port,
-            srv.priority,
-            srv.weight
-        );
-    });
-
-    Vec::from_iter(
-        record
-            .0
-            .iter()
-            .map(|srv| format!("{}:{}", srv.target, srv.port)),
-    )
-}
-
-#[cfg(target_os = "windows")]
 pub async fn resolve_server_srv(addr: &str) -> Vec<String> {
     let (conf, opts) = system_conf::read_system_conf().unwrap();
     let raw_record = match AsyncResolver::tokio(conf, opts)
