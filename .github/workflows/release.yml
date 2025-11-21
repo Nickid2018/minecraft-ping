@@ -1,0 +1,97 @@
+name: Release
+on:
+  push:
+jobs:
+  build:
+    runs-on: ${{ matrix.settings.os }}
+    if: "startsWith(github.ref, 'refs/tags/')"
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - os: ubuntu-latest
+            exe: mcping
+          - os: windows-latest
+            exe: mcping.exe
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-rel-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-rel-cargo-
+      - name: Build (Release)
+        run: cargo build --release --verbose
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.settings.os }}
+          path: target/debug/${{ matrix.settings.exe }}
+
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-ubuntu-latest
+          path: .pkg/usr/bin
+      - name: Get tag name
+        id: process-name
+        env:
+          REF: ${{ github.ref }}
+        run: echo "NAME=${REF##*/}" >> $GITHUB_OUTPUT
+      - name: Build DEB
+        uses: jiro4989/build-deb-action@v4
+        id: deb-build
+        with:
+          package: minecraft-ping
+          package_root: .pkg
+          maintainer: Nickid2018
+          version: ${{ steps.process-name.outputs.NAME }}
+          homepage: 'https://github.com/Nickid2018/minecraft-ping'
+          desc: 'A tool for minecraft status pinging'
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: deb-package
+          path: ${{ steps.deb-build.outputs.file_name }}
+
+  release:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v5
+        with:
+          merge-multiple: true
+      - name: Get tag name
+        id: process-name
+        env:
+          REF: ${{ github.ref }}
+        run: echo "NAME=${REF##*/}" >> $GITHUB_OUTPUT
+      - name: Get Tag Message
+        id: tag
+        run: |
+          git fetch --tags --force
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "TAG_MESSAGE<<$EOF"$'\n'"$(git for-each-ref $GITHUB_REF --format='%(contents)' | sed -E '/^-----BEGIN PGP SIGNATURE-----$/,$d')"$'\n'$EOF >> $GITHUB_OUTPUT
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ steps.process-name.outputs.NAME }}
+          prerelease: ${{ contains(github.ref, 'beta') }}
+          body: ${{ steps.tag.outputs.TAG_MESSAGE }}
+          files: ./*
