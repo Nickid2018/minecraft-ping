@@ -1,0 +1,1 @@
+A tool for pinging Minecraft servers.

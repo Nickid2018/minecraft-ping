@@ -33,7 +33,7 @@ pub fn sanitize_motd_args(args: &mut crate::BaseArgs) {
             .pop_if(|i| *i == AvailableAnalyzers::MOTD);
         return;
     }
-    let motd = &mut args.analyzer_args.motd;
+    let motd = &mut args.analyzer_args.motd_args;
     if args.no_color {
         motd.no_motd_styles = true;
     }

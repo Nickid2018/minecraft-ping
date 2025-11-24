@@ -84,7 +84,7 @@ pub struct AnalyzerArgs {
     analyzers: Vec<AvailableAnalyzers>,
 
     #[command(flatten)]
-    motd: MotdArgs,
+    motd_args: MotdArgs,
     #[command(flatten)]
     player_args: PlayerArgs,
     #[command(flatten)]
@@ -110,7 +110,7 @@ pub fn init_analyzer_tools(args: &'_ AnalyzerArgs) -> AnalyzerTools<'_> {
     }
 
     if args.analyzers.contains(&AvailableAnalyzers::MOTD) {
-        analyzers.push(Box::new(motd::Motd::new(&args.motd)));
+        analyzers.push(Box::new(motd::Motd::new(&args.motd_args)));
     }
 
     if args.analyzers.contains(&AvailableAnalyzers::PLAYER) {
