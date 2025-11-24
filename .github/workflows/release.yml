@@ -61,7 +61,7 @@ jobs:
           maintainer: Nickid2018
           version: ${{ steps.process-name.outputs.NAME }}
           homepage: 'https://github.com/Nickid2018/minecraft-ping'
-          desc: 'A tool for minecraft status pinging'
+          desc: 'A tool for pinging Minecraft servers'
       - name: Upload Artifact
         uses: actions/upload-artifact@v5
         with:
@@ -78,6 +78,8 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           merge-multiple: true
+      - name: Checkout
+        uses: actions/checkout@v5
       - name: Get tag name
         id: process-name
         env:
