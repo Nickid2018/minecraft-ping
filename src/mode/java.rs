@@ -97,7 +97,7 @@ async fn single_ip_check(addr: &SocketAddr, protocol: i32) -> std::io::Result<St
     let desc = decoded["description"].take();
     let motd = if desc.is_string() {
         Some(MotdInfo::String(desc.as_str().unwrap_or("").to_string()))
-    } else if decoded["description"].is_object() {
+    } else if desc.is_object() {
         Some(MotdInfo::Component(desc))
     } else {
         None
