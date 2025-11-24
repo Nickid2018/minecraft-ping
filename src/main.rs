@@ -11,7 +11,7 @@ use logger::LogLevel;
 use mode::QueryMode;
 use std::process::ExitCode;
 
-/// Program for minecraft server pinging.
+/// A tool for pinging Minecraft servers
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
 struct BaseArgs {
