@@ -31,8 +31,8 @@ impl Analyzer for Favicon<'_> {
 
     async fn analyze(&self, payload: &StatusPayload) {
         match do_favicon_output(
-            &payload.favicon.as_ref().unwrap(),
-            &self.args.favicon.as_ref().unwrap(),
+            &payload.favicon.as_ref().expect("No favicon provided"),
+            &self.args.favicon.as_ref().expect("No favicon output provided"),
         )
         .await
         {

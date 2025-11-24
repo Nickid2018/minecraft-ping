@@ -28,8 +28,8 @@ impl Analyzer for Player<'_> {
     async fn analyze(&self, payload: &StatusPayload) {
         log::info!(
             "Players: {}/{}",
-            payload.player_count.unwrap(),
-            payload.max_players.unwrap()
+            payload.player_count.expect("player count should exist"),
+            payload.max_players.expect("max player count should exist")
         );
         if !self.args.no_player_list
             && let Some(players) = payload.players.as_ref()

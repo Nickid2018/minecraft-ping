@@ -12,6 +12,7 @@ use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpSocket;
 use tokio::time::timeout;
+use crate::mode::QueryMode::LEGACY;
 
 const LEGACY_HEADER: [u8; 27] = [
     0xFE, 0x01, 0xFA, 0x00, 0x0B, 0x00, 0x4D, 0x00, 0x43, 0x00, 0x7C, 0x00, 0x50, 0x00, 0x69, 0x00,
@@ -82,11 +83,12 @@ async fn single_ip_check(addr: &SocketAddr) -> std::io::Result<StatusPayload> {
             log::warn!("Data will be collected, but can not ensure data is correct");
         }
         Ok(StatusPayload {
+            mode: LEGACY,
             ping,
             max_players: Some(util::parse_i64(parts[5])?),
             player_count: Some(util::parse_i64(parts[4])?),
             players: None,
-            motd: Some(MOTD::String(parts[3].to_string())),
+            motd: Some(MotdInfo::String(parts[3].to_string())),
             protocol: Some(util::parse_i64(parts[1])?),
             version_name: Some(parts[2].to_string()),
             favicon: None,
@@ -106,11 +108,12 @@ async fn single_ip_check(addr: &SocketAddr) -> std::io::Result<StatusPayload> {
             log::warn!("Data will be collected, but can not ensure data is correct");
         }
         Ok(StatusPayload {
+            mode: LEGACY,
             ping,
             max_players: Some(util::parse_i64(parts[2])?),
             player_count: Some(util::parse_i64(parts[1])?),
             players: None,
-            motd: Some(MOTD::String(parts[0].to_string())),
+            motd: Some(MotdInfo::String(parts[0].to_string())),
             protocol: None,
             version_name: None,
             favicon: None,

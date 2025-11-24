@@ -1,4 +1,4 @@
-use crate::analyze::{MOTD, StatusPayload};
+use crate::analyze::{MotdInfo, StatusPayload};
 use crate::mode::QueryModeHandler;
 use crate::network::resolve::resolve_addr;
 use crate::network::util;
@@ -10,6 +10,7 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::time::timeout;
+use crate::mode::QueryMode::BEDROCK;
 
 const MAGIC_HIGH: u64 = 0x00ffff00fefefefeu64;
 const MAGIC_LOW: u64 = 0xfdfdfdfd12345678u64;
@@ -73,11 +74,12 @@ async fn single_ip_check(addr: &SocketAddr) -> std::io::Result<StatusPayload> {
     }
 
     Ok(StatusPayload {
+        mode: BEDROCK,
         ping,
         max_players: Some(util::parse_i64(parts[5])?),
         player_count: Some(util::parse_i64(parts[4])?),
         players: None,
-        motd: Some(MOTD::String(format!("{}\n{}", parts[1], parts[7]))),
+        motd: Some(MotdInfo::String(format!("{}\n{}", parts[1], parts[7]))),
         protocol: Some(util::parse_i64(parts[2])?),
         version_name: Some(parts[3].to_string()),
         favicon: None,

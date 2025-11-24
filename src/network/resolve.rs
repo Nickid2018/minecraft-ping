@@ -4,7 +4,7 @@ use std::net::{SocketAddr, ToSocketAddrs};
 use trust_dns_resolver::{AsyncResolver, system_conf};
 
 pub async fn resolve_server_srv(addr: &str) -> Vec<String> {
-    let (conf, opts) = system_conf::read_system_conf().unwrap();
+    let (conf, opts) = system_conf::read_system_conf().expect("Could not read system conf");
     let raw_record = match AsyncResolver::tokio(conf, opts)
         .srv_lookup(format!("_minecraft._tcp.{}", addr))
         .await
@@ -36,7 +36,7 @@ pub async fn resolve_server_srv(addr: &str) -> Vec<String> {
 }
 
 pub fn resolve_addr(addr: &str, default_port: u16) -> Option<Vec<SocketAddr>> {
-    let addr_regex = Regex::new(r".+:\d+$").unwrap();
+    let addr_regex = Regex::new(r".+:\d+$").expect("Could not compile regex");
     let check_str = if addr_regex.is_match(&addr) {
         addr
     } else {

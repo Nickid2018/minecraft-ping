@@ -4,8 +4,8 @@ mod mode;
 mod network;
 mod util;
 
-use crate::analyze::{init_analyzer_tools, AnalyzerArgs};
-use crate::mode::{init_query_engine, ModeArgs};
+use crate::analyze::{AnalyzerArgs, init_analyzer_tools, sanitize_analyzer_args};
+use crate::mode::{ModeArgs, init_query_engine};
 use clap::Parser;
 use logger::LogLevel;
 use mode::QueryMode;
@@ -33,15 +33,36 @@ struct BaseArgs {
     /// Log level for output
     #[arg(short, long, default_value = "info")]
     log_level: LogLevel,
-    /// Disable colorize output
+    /// Shortcut for `--log-level trace`, enable all outputs
+    #[arg(short, long)]
+    verbose: bool,
+    /// Shortcut for `--log-level quiet`, disable all outputs
+    #[arg(short, long)]
+    quiet: bool,
+
+    /// Do not colorize all outputs
     #[arg(long)]
     no_color: bool,
 }
 
+fn sanitize_main_args(args: &mut BaseArgs) {
+    if args.verbose {
+        args.log_level = LogLevel::TRACE;
+    }
+    if args.quiet {
+        args.log_level = LogLevel::QUIET;
+    }
+    if std::env::var("NO_COLOR").is_ok() {
+        args.no_color = true;
+    }
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
-    let args = BaseArgs::parse();
-    logger::init(args.log_level, args.no_color).unwrap();
+    let mut args = BaseArgs::parse();
+    sanitize_main_args(&mut args);
+    logger::init(args.log_level, args.no_color).expect("Failed to initialize logger");
+    sanitize_analyzer_args(&mut args);
 
     let engine = init_query_engine(&args.mode_args);
     let analyzers = init_analyzer_tools(&args.analyzer_args);

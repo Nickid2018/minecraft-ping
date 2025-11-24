@@ -1,4 +1,4 @@
-use crate::analyze::{MOTD, PlayerInfo, StatusPayload};
+use crate::analyze::{MotdInfo, PlayerInfo, StatusPayload};
 use crate::mode::QueryModeHandler;
 use crate::network::resolve::{resolve_addr, resolve_server_srv};
 use crate::network::schema::{read_string, read_var_int_stream, write_var_int};
@@ -13,6 +13,7 @@ use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpSocket;
 use tokio::time::timeout;
+use crate::mode::QueryMode::JAVA;
 
 async fn single_ip_check(addr: &SocketAddr, protocol: i32) -> std::io::Result<StatusPayload> {
     let timeout_time = Duration::from_secs(5);
@@ -79,7 +80,7 @@ async fn single_ip_check(addr: &SocketAddr, protocol: i32) -> std::io::Result<St
             "Invalid pong packet",
         ));
     }
-    let server_clock = i64::from_be_bytes(recv_pong[2..10].try_into().unwrap());
+    let server_clock = i64::from_be_bytes(recv_pong[2..10].try_into().expect("Recv failed"));
     let diff = util::now_timestamp() - server_clock;
     log::trace!("Got ping time: {}", diff);
 
@@ -95,9 +96,9 @@ async fn single_ip_check(addr: &SocketAddr, protocol: i32) -> std::io::Result<St
 
     let desc = decoded["description"].take();
     let motd = if desc.is_string() {
-        Some(MOTD::String(desc.as_str().unwrap_or("").to_string()))
+        Some(MotdInfo::String(desc.as_str().unwrap_or("").to_string()))
     } else if decoded["description"].is_object() {
-        Some(MOTD::Component(desc))
+        Some(MotdInfo::Component(desc))
     } else {
         None
     };
@@ -109,6 +110,7 @@ async fn single_ip_check(addr: &SocketAddr, protocol: i32) -> std::io::Result<St
     let favicon = decoded["favicon"].take().as_str().map(|v| v.to_string());
 
     Ok(StatusPayload {
+        mode: JAVA,
         ping: diff,
         max_players,
         player_count,

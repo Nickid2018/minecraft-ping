@@ -2,7 +2,7 @@ use clap::ValueEnum;
 use colored::Colorize;
 use log::{Level, LevelFilter, Metadata, Record, SetLoggerError};
 
-#[derive(Debug, Copy, Clone, ValueEnum)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, ValueEnum)]
 pub enum LogLevel {
     TRACE,
     DEBUG,

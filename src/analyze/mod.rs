@@ -5,9 +5,11 @@ mod player;
 mod version;
 
 use crate::analyze::favicon::FaviconArgs;
+use crate::analyze::motd::{MotdArgs, sanitize_motd_args};
 use crate::analyze::player::PlayerArgs;
+use crate::mode::QueryMode;
 use async_trait::async_trait;
-use clap::{Args, ValueEnum};
+use clap::{Args, ValueEnum, arg};
 use serde_json::Value;
 
 #[derive(Debug)]
@@ -17,13 +19,14 @@ pub struct PlayerInfo {
 }
 
 #[derive(Debug)]
-pub enum MOTD {
+pub enum MotdInfo {
     String(String),
     Component(Value),
 }
 
 #[derive(Debug)]
 pub struct StatusPayload {
+    pub mode: QueryMode,
     pub ping: i64,
 
     // players
@@ -32,7 +35,7 @@ pub struct StatusPayload {
     pub players: Option<Vec<PlayerInfo>>,
 
     // motd
-    pub motd: Option<MOTD>,
+    pub motd: Option<MotdInfo>,
 
     // version
     pub protocol: Option<i64>,
@@ -81,12 +84,21 @@ pub struct AnalyzerArgs {
     analyzers: Vec<AvailableAnalyzers>,
 
     #[command(flatten)]
+    motd: MotdArgs,
+    #[command(flatten)]
     player_args: PlayerArgs,
     #[command(flatten)]
     favicon_args: FaviconArgs,
 }
 
-pub fn init_analyzer_tools<'a>(args: &'_ AnalyzerArgs) -> AnalyzerTools<'_> {
+pub fn sanitize_analyzer_args(args: &mut crate::BaseArgs) {
+    let analyzers = &args.analyzer_args.analyzers;
+    if analyzers.contains(&AvailableAnalyzers::MOTD) {
+        sanitize_motd_args(args);
+    }
+}
+
+pub fn init_analyzer_tools(args: &'_ AnalyzerArgs) -> AnalyzerTools<'_> {
     let mut analyzers: Vec<Box<dyn Analyzer>> = Vec::new();
 
     if args.analyzers.contains(&AvailableAnalyzers::PING) {
@@ -98,7 +110,7 @@ pub fn init_analyzer_tools<'a>(args: &'_ AnalyzerArgs) -> AnalyzerTools<'_> {
     }
 
     if args.analyzers.contains(&AvailableAnalyzers::MOTD) {
-        analyzers.push(Box::new(motd::Motd {}));
+        analyzers.push(Box::new(motd::Motd::new(&args.motd)));
     }
 
     if args.analyzers.contains(&AvailableAnalyzers::PLAYER) {
