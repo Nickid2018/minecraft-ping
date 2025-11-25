@@ -1,10 +1,14 @@
 mod favicon;
+#[cfg(feature = "analyze-forge-info")]
+mod forge_info;
 mod motd;
 mod ping;
 mod player;
 mod version;
 
 use crate::analyze::favicon::FaviconArgs;
+#[cfg(feature = "analyze-forge-info")]
+use crate::analyze::forge_info::ForgeInfoArgs;
 use crate::analyze::motd::{MotdArgs, sanitize_motd_args};
 use crate::analyze::player::PlayerArgs;
 use crate::mode::QueryMode;
@@ -70,11 +74,13 @@ impl AnalyzerTools<'_> {
 
 #[derive(Debug, Clone, Eq, PartialEq, ValueEnum)]
 pub enum AvailableAnalyzers {
-    PING,
-    VERSION,
-    MOTD,
-    PLAYER,
-    FAVICON,
+    Ping,
+    Version,
+    Motd,
+    Player,
+    Favicon,
+    #[cfg(feature = "analyze-forge-info")]
+    ForgeInfo,
 }
 
 #[derive(Args, Debug)]
@@ -89,11 +95,14 @@ pub struct AnalyzerArgs {
     player_args: PlayerArgs,
     #[command(flatten)]
     favicon_args: FaviconArgs,
+    #[cfg(feature = "analyze-forge-info")]
+    #[command(flatten)]
+    forge_info_args: ForgeInfoArgs,
 }
 
 pub fn sanitize_analyzer_args(args: &mut crate::BaseArgs) {
     let analyzers = &args.analyzer_args.analyzers;
-    if analyzers.contains(&AvailableAnalyzers::MOTD) {
+    if analyzers.contains(&AvailableAnalyzers::Motd) {
         sanitize_motd_args(args);
     }
 }
@@ -101,24 +110,29 @@ pub fn sanitize_analyzer_args(args: &mut crate::BaseArgs) {
 pub fn init_analyzer_tools(args: &'_ AnalyzerArgs) -> AnalyzerTools<'_> {
     let mut analyzers: Vec<Box<dyn Analyzer>> = Vec::new();
 
-    if args.analyzers.contains(&AvailableAnalyzers::PING) {
+    if args.analyzers.contains(&AvailableAnalyzers::Ping) {
         analyzers.push(Box::new(ping::Ping {}));
     }
 
-    if args.analyzers.contains(&AvailableAnalyzers::VERSION) {
+    if args.analyzers.contains(&AvailableAnalyzers::Version) {
         analyzers.push(Box::new(version::Version {}));
     }
 
-    if args.analyzers.contains(&AvailableAnalyzers::MOTD) {
+    if args.analyzers.contains(&AvailableAnalyzers::Motd) {
         analyzers.push(Box::new(motd::Motd::new(&args.motd_args)));
     }
 
-    if args.analyzers.contains(&AvailableAnalyzers::PLAYER) {
+    if args.analyzers.contains(&AvailableAnalyzers::Player) {
         analyzers.push(Box::new(player::Player::new(&args.player_args)));
     }
 
-    if args.analyzers.contains(&AvailableAnalyzers::FAVICON) {
+    if args.analyzers.contains(&AvailableAnalyzers::Favicon) {
         analyzers.push(Box::new(favicon::Favicon::new(&args.favicon_args)));
+    }
+
+    #[cfg(feature = "analyze-forge-info")]
+    if args.analyzers.contains(&AvailableAnalyzers::ForgeInfo) {
+        analyzers.push(Box::new(forge_info::ForgeInfo::new(&args.forge_info_args)));
     }
 
     AnalyzerTools { analyzers }

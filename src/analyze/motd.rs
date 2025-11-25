@@ -30,7 +30,7 @@ pub fn sanitize_motd_args(args: &mut crate::BaseArgs) {
     if args.log_level > LogLevel::INFO {
         args.analyzer_args
             .analyzers
-            .pop_if(|i| *i == AvailableAnalyzers::MOTD);
+            .pop_if(|i| *i == AvailableAnalyzers::Motd);
         return;
     }
     let motd = &mut args.analyzer_args.motd_args;

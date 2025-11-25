@@ -143,7 +143,7 @@ async fn check_java_server(
 
 #[derive(Args, Debug)]
 pub struct JavaModeArgs {
-    /// Do not follow SRV redirection for Java and Legacy query mode
+    /// Do not follow SRV redirection for Java query modes
     #[arg(long)]
     pub no_srv: bool,
     /// Simulate the protocol version of the client
