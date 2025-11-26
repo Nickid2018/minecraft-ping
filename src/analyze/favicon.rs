@@ -1,4 +1,5 @@
 use crate::analyze::{Analyzer, StatusPayload};
+use anyhow::Result;
 use async_trait::async_trait;
 use clap::Args;
 use tokio::fs::File;
@@ -15,9 +16,9 @@ pub struct Favicon<'a> {
     args: &'a FaviconArgs,
 }
 
-async fn do_favicon_output(favicon: &str, output: &str) -> std::io::Result<()> {
-    let data_url = data_url::DataUrl::process(favicon).map_err(crate::util::wrap_other)?;
-    let bytes = data_url.decode_to_vec().map_err(crate::util::wrap_other)?;
+async fn do_favicon_output(favicon: &str, output: &str) -> Result<()> {
+    let data_url = data_url::DataUrl::process(favicon)?;
+    let bytes = data_url.decode_to_vec()?;
     let mut file = File::create(output).await?;
     file.write_all(&bytes.0).await?;
     Ok(())
@@ -32,7 +33,11 @@ impl Analyzer for Favicon<'_> {
     async fn analyze(&self, payload: &StatusPayload) {
         match do_favicon_output(
             &payload.favicon.as_ref().expect("No favicon provided"),
-            &self.args.favicon.as_ref().expect("No favicon output provided"),
+            &self
+                .args
+                .favicon
+                .as_ref()
+                .expect("No favicon output provided"),
         )
         .await
         {

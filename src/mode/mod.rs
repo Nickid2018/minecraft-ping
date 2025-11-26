@@ -4,10 +4,10 @@ use crate::mode::bedrock::BedrockQuery;
 use crate::mode::java::{JavaModeArgs, JavaQuery};
 #[cfg(feature = "ping-legacy")]
 use crate::mode::legacy::LegacyQuery;
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use clap::{Args, ValueEnum};
 use std::collections::HashMap;
-use std::io::ErrorKind;
 
 pub mod bedrock;
 pub mod java;
@@ -24,7 +24,7 @@ pub enum QueryMode {
 
 #[async_trait]
 trait QueryModeHandler {
-    async fn do_query(&self, addr: &str) -> std::io::Result<StatusPayload>;
+    async fn do_query(&self, addr: &str) -> Result<StatusPayload>;
 }
 
 pub struct QueryEngine<'a> {
@@ -32,14 +32,11 @@ pub struct QueryEngine<'a> {
 }
 
 impl QueryEngine<'_> {
-    pub async fn query(&self, mode: QueryMode, addr: &str) -> std::io::Result<StatusPayload> {
+    pub async fn query(&self, mode: QueryMode, addr: &str) -> Result<StatusPayload> {
         if let Some(handler) = self.modes.get(&mode) {
             handler.do_query(addr).await
         } else {
-            Err(std::io::Error::new(
-                ErrorKind::Other,
-                "No available query mode",
-            ))
+            Err(anyhow!("No available query mode"))
         }
     }
 }

@@ -2,10 +2,10 @@ mod analyze;
 mod logger;
 mod mode;
 mod network;
-mod util;
 
 use crate::analyze::{AnalyzerArgs, init_analyzer_tools, sanitize_analyzer_args};
 use crate::mode::{ModeArgs, init_query_engine};
+use crate::network::connection::{setup_proxy, ProxySettings};
 use clap::Parser;
 use logger::LogLevel;
 use mode::QueryMode;
@@ -29,6 +29,9 @@ struct BaseArgs {
     mode_args: ModeArgs,
     #[command(flatten)]
     analyzer_args: AnalyzerArgs,
+
+    #[command(flatten)]
+    proxy_settings: ProxySettings,
 
     /// Log level for output
     #[arg(short, long, default_value = "info")]
@@ -55,6 +58,9 @@ fn sanitize_main_args(args: &mut BaseArgs) {
     if std::env::var("NO_COLOR").is_ok() {
         args.no_color = true;
     }
+    if let Ok(all_proxy) = std::env::var("ALL_PROXY") {
+        args.proxy_settings.proxy = Some(all_proxy);
+    }
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -62,6 +68,7 @@ async fn main() -> ExitCode {
     let mut args = BaseArgs::parse();
     sanitize_main_args(&mut args);
     logger::init(args.log_level, args.no_color).expect("Failed to initialize logger");
+    setup_proxy(&args.proxy_settings);
     sanitize_analyzer_args(&mut args);
 
     let engine = init_query_engine(&args.mode_args);

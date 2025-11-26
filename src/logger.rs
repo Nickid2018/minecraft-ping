@@ -31,6 +31,11 @@ impl log::Log for SimpleLogger {
 
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
+            let output_level = if record.target().starts_with("fast_socks5") {
+                Level::Trace
+            } else {
+                record.level()
+            };
             let print = match self.level {
                 LogLevel::TRACE | LogLevel::DEBUG => {
                     format!("[{}] {}", record.target().replace("::", "/"), record.args())
@@ -40,7 +45,7 @@ impl log::Log for SimpleLogger {
             let colored = if self.no_color {
                 print.white().clear()
             } else {
-                match record.level() {
+                match output_level {
                     Level::Trace => print.bright_black(),
                     Level::Debug => print.magenta(),
                     Level::Info => print.white().clear(),

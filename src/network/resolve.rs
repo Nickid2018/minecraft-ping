@@ -1,7 +1,10 @@
+use anyhow::Result;
 use regex::Regex;
 use std::net::{SocketAddr, ToSocketAddrs};
-
+use std::sync::LazyLock;
 use trust_dns_resolver::{AsyncResolver, system_conf};
+
+const ADDRESS_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"^(.+):(\d+)$").ok());
 
 pub async fn resolve_server_srv(addr: &str) -> Vec<String> {
     let (conf, opts) = system_conf::read_system_conf().expect("Could not read system conf");
@@ -35,19 +38,20 @@ pub async fn resolve_server_srv(addr: &str) -> Vec<String> {
     )
 }
 
-pub fn resolve_addr(addr: &str, default_port: u16) -> Option<Vec<SocketAddr>> {
-    let addr_regex = Regex::new(r".+:\d+$").expect("Could not compile regex");
-    let check_str = if addr_regex.is_match(&addr) {
-        addr
-    } else {
-        &*format!("{}:{}", addr, default_port)
-    };
-    match check_str.to_socket_addrs() {
-        Ok(addrs_iter) => Some(Vec::from_iter(addrs_iter)),
+pub fn sanitize_addr(addr: &str, default_port: u16) -> Result<(String, u16)> {
+    match ADDRESS_REGEX.as_ref().expect("Compile regex failed!").captures(addr) {
+        Some(captures) => Ok((captures[1].to_string(), captures[2].parse()?)),
+        None => Ok((addr.to_string(), default_port)),
+    }
+}
+
+pub fn resolve_addr(addr: &str, port: u16) -> Vec<SocketAddr> {
+    match format!("{}:{}", addr, port).to_socket_addrs() {
+        Ok(addrs_iter) => Vec::from_iter(addrs_iter),
         Err(e) => {
             log::debug!("Address resolving failed for {}:", addr);
             log::debug!("    {}", e);
-            None
+            vec![]
         }
     }
 }

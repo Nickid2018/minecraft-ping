@@ -1,22 +1,22 @@
 use crate::analyze::{MotdInfo, StatusPayload};
 use crate::mode::QueryMode::BEDROCK;
 use crate::mode::QueryModeHandler;
-use crate::network::resolve::resolve_addr;
+use crate::network::resolve::{resolve_addr, sanitize_addr};
 use crate::network::util;
+use crate::network::util::io_timeout;
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use bytes::{Buf, BufMut, BytesMut};
 use serde_json::json;
-use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::task::JoinSet;
-use tokio::time::timeout;
 
 const MAGIC_HIGH: u64 = 0x00ffff00fefefefeu64;
 const MAGIC_LOW: u64 = 0xfdfdfdfd12345678u64;
 
-async fn single_ip_check(addr: SocketAddr) -> std::io::Result<StatusPayload> {
+async fn single_ip_check(addr: SocketAddr) -> Result<StatusPayload> {
     let timeout_time = Duration::from_secs(5);
     let socket = UdpSocket::bind("0.0.0.0:0").await?;
     socket.connect(addr).await?;
@@ -32,15 +32,12 @@ async fn single_ip_check(addr: SocketAddr) -> std::io::Result<StatusPayload> {
     log::trace!("Sent Unconnected Ping packet");
 
     let mut recv_buf = [0u8; 1024];
-    let recv = timeout(timeout_time, socket.recv_from(&mut recv_buf)).await??;
+    let recv = io_timeout(timeout_time, socket.recv_from(&mut recv_buf), "Recv").await?;
     log::trace!("Received response from {}", addr);
 
     let mut bytes = BytesMut::from(&recv_buf[..recv.0]);
     if bytes.get_u8() != 0x1C {
-        return Err(std::io::Error::new(
-            ErrorKind::InvalidData,
-            "Unexpected response byte",
-        ));
+        return Err(anyhow!("Unexpected response byte"));
     }
 
     let server_clock = bytes.get_i64();
@@ -50,28 +47,19 @@ async fn single_ip_check(addr: SocketAddr) -> std::io::Result<StatusPayload> {
     let str_len = bytes.get_u16();
 
     if magic_high != MAGIC_HIGH || magic_low != MAGIC_LOW {
-        return Err(std::io::Error::new(
-            ErrorKind::InvalidData,
-            "Invalid magic number",
-        ));
+        return Err(anyhow!("Invalid magic number"));
     }
     if str_len as usize != recv.0 - 35 {
-        return Err(std::io::Error::new(
-            ErrorKind::InvalidData,
-            "Invalid string length",
-        ));
+        return Err(anyhow!("Invalid string length",));
     }
 
     let ping = util::now_timestamp() - server_clock;
-    let resp = String::from_utf8(bytes.to_vec()).map_err(crate::util::wrap_other)?;
+    let resp = String::from_utf8(bytes.to_vec())?;
     log::trace!("Ping response: {}", resp);
 
     let parts = resp.split(';').collect::<Vec<_>>();
     if parts.len() < 9 {
-        return Err(std::io::Error::new(
-            ErrorKind::InvalidData,
-            "Invalid response",
-        ));
+        return Err(anyhow!("Invalid response"));
     }
 
     Ok(StatusPayload {
@@ -88,17 +76,19 @@ async fn single_ip_check(addr: SocketAddr) -> std::io::Result<StatusPayload> {
     })
 }
 
-async fn safe_ip_check(addr: SocketAddr) -> std::io::Result<StatusPayload> {
+async fn safe_ip_check(addr: SocketAddr) -> Result<StatusPayload> {
     match single_ip_check(addr).await {
         Ok(status) => Ok(status),
-        Err(e) => {
-            log::warn!("Failed to check available server ip {}: {}", addr, e);
-            Err(e)
-        }
+        Err(e) => Err(anyhow!(
+            "Protocol error in <{}:{}>: {}",
+            addr.ip(),
+            addr.port(),
+            e
+        )),
     }
 }
 
-async fn check_bedrock_server(addr_vec: Vec<SocketAddr>) -> std::io::Result<StatusPayload> {
+async fn check_bedrock_server(addr_vec: Vec<SocketAddr>) -> Result<StatusPayload> {
     let mut set = JoinSet::new();
 
     for addr in addr_vec {
@@ -106,24 +96,24 @@ async fn check_bedrock_server(addr_vec: Vec<SocketAddr>) -> std::io::Result<Stat
     }
 
     while let Some(join_res) = set.join_next().await {
-        if let Ok(res) = join_res
-            && res.is_ok()
-        {
-            return res;
+        if let Ok(res) = join_res {
+            match res {
+                Ok(res) => return Ok(res),
+                Err(e) => log::warn!("{}", e),
+            }
         }
     }
 
-    Err(std::io::Error::new(ErrorKind::NotFound, "No server found"))
+    Err(anyhow!("No server found"))
 }
 
 pub struct BedrockQuery;
 
 #[async_trait]
 impl QueryModeHandler for BedrockQuery {
-    async fn do_query(&self, addr: &str) -> std::io::Result<StatusPayload> {
-        let res = resolve_addr(addr, 19132);
-        let addrs = res.unwrap_or(vec![]);
-        check_bedrock_server(addrs).await
+    async fn do_query(&self, addr: &str) -> Result<StatusPayload> {
+        let (host, port) = sanitize_addr(addr, 19132)?;
+        check_bedrock_server(resolve_addr(&host, port)).await
     }
 }
 
