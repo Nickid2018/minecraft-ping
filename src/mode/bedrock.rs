@@ -1,4 +1,5 @@
 use crate::analyze::{MotdInfo, StatusPayload};
+use crate::mode::QueryMode::BEDROCK;
 use crate::mode::QueryModeHandler;
 use crate::network::resolve::resolve_addr;
 use crate::network::util;
@@ -9,13 +10,13 @@ use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::net::UdpSocket;
+use tokio::task::JoinSet;
 use tokio::time::timeout;
-use crate::mode::QueryMode::BEDROCK;
 
 const MAGIC_HIGH: u64 = 0x00ffff00fefefefeu64;
 const MAGIC_LOW: u64 = 0xfdfdfdfd12345678u64;
 
-async fn single_ip_check(addr: &SocketAddr) -> std::io::Result<StatusPayload> {
+async fn single_ip_check(addr: SocketAddr) -> std::io::Result<StatusPayload> {
     let timeout_time = Duration::from_secs(5);
     let socket = UdpSocket::bind("0.0.0.0:0").await?;
     socket.connect(addr).await?;
@@ -32,7 +33,7 @@ async fn single_ip_check(addr: &SocketAddr) -> std::io::Result<StatusPayload> {
 
     let mut recv_buf = [0u8; 1024];
     let recv = timeout(timeout_time, socket.recv_from(&mut recv_buf)).await??;
-    log::trace!("Received response");
+    log::trace!("Received response from {}", addr);
 
     let mut bytes = BytesMut::from(&recv_buf[..recv.0]);
     if bytes.get_u8() != 0x1C {
@@ -87,18 +88,31 @@ async fn single_ip_check(addr: &SocketAddr) -> std::io::Result<StatusPayload> {
     })
 }
 
-async fn check_bedrock_server(addr_vec: &Vec<SocketAddr>) -> std::io::Result<StatusPayload> {
-    for addr in addr_vec {
-        match single_ip_check(&addr).await {
-            Ok(r) => {
-                return Ok(r);
-            }
-            Err(e) => {
-                log::warn!("Failed to check available server ip {}: {}", addr, e);
-                continue;
-            }
+async fn safe_ip_check(addr: SocketAddr) -> std::io::Result<StatusPayload> {
+    match single_ip_check(addr).await {
+        Ok(status) => Ok(status),
+        Err(e) => {
+            log::warn!("Failed to check available server ip {}: {}", addr, e);
+            Err(e)
         }
     }
+}
+
+async fn check_bedrock_server(addr_vec: Vec<SocketAddr>) -> std::io::Result<StatusPayload> {
+    let mut set = JoinSet::new();
+
+    for addr in addr_vec {
+        set.spawn(safe_ip_check(addr));
+    }
+
+    while let Some(join_res) = set.join_next().await {
+        if let Ok(res) = join_res
+            && res.is_ok()
+        {
+            return res;
+        }
+    }
+
     Err(std::io::Error::new(ErrorKind::NotFound, "No server found"))
 }
 
@@ -107,8 +121,8 @@ pub struct BedrockQuery;
 #[async_trait]
 impl QueryModeHandler for BedrockQuery {
     async fn do_query(&self, addr: &str) -> std::io::Result<StatusPayload> {
-        let mut res = resolve_addr(addr, 19132);
-        let addrs = res.get_or_insert_default();
+        let res = resolve_addr(addr, 19132);
+        let addrs = res.unwrap_or(vec![]);
         check_bedrock_server(addrs).await
     }
 }
