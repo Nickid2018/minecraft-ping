@@ -1,9 +1,9 @@
 use crate::analyze::{Analyzer, StatusPayload};
 use crate::network::schema::{read_string, read_var_int_buf};
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use bytes::{Buf, BufMut, BytesMut};
 use clap::Args;
-use std::io::ErrorKind;
 
 #[derive(Args, Debug)]
 pub struct ForgeInfoArgs {
@@ -16,13 +16,10 @@ pub struct ForgeInfo<'a> {
     args: &'a ForgeInfoArgs,
 }
 
-async fn try_analyze_encoded(data: &str, display_channels: bool) -> std::io::Result<()> {
+async fn try_analyze_encoded(data: &str, display_channels: bool) -> Result<()> {
     let chars = data.encode_utf16().collect::<Vec<u16>>();
     if chars.len() < 2 {
-        return Err(std::io::Error::new(
-            ErrorKind::InvalidData,
-            "ForgeData too short",
-        ));
+        return Err(anyhow!("ForgeData too short"));
     }
 
     let buffer_len = chars[0] as u32 | (chars[1] as u32) << 15;
@@ -132,7 +129,7 @@ impl Analyzer for ForgeInfo<'_> {
             if forge_data["truncated"].as_bool().unwrap_or(false) {
                 log::info!("Server truncated mod information");
             }
-            
+
             let default_vec = vec![];
             let mod_list = forge_data["mods"].as_array().unwrap_or(&default_vec);
             let ch_list = forge_data["channels"].as_array().unwrap_or(&default_vec);

@@ -11,9 +11,10 @@ ping-legacy = []
 anyhow = "1.0.100"
 async-trait = "0.1.89"
 bytes = "1.11.0"
-clap = { version = "4.5.52", features = ["derive"] }
+clap = { version = "4.5.53", features = ["derive"] }
 colored = "3.0.0"
 data-url = "0.3.2"
+fast-socks5 = "0.10.0"
 log = { version = "0.4.28", features = ["std"] }
 proxied = "1.1.0"
 regex = "1.12.2"

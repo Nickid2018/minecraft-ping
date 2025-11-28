@@ -1,10 +1,9 @@
-use crate::analyze::*;
+use crate::analyze::{MotdInfo, StatusPayload};
 use crate::mode::QueryMode::LEGACY;
 use crate::mode::QueryModeHandler;
 use crate::mode::java::JavaModeArgs;
 use crate::network::connection::connect_tcp;
 use crate::network::resolve::{resolve_server_srv, sanitize_addr};
-use crate::network::util;
 use crate::network::util::{io_timeout, now_timestamp};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
@@ -71,11 +70,11 @@ async fn single_ip_check(addr: &str, port: u16, stream: &mut TcpStream) -> Resul
         Ok(StatusPayload {
             mode: LEGACY,
             ping,
-            max_players: Some(util::parse_i64(parts[5])?),
-            player_count: Some(util::parse_i64(parts[4])?),
+            max_players: Some(parts[5].parse()?),
+            player_count: Some(parts[4].parse()?),
             players: None,
             motd: Some(MotdInfo::String(parts[3].to_string())),
-            protocol: Some(util::parse_i64(parts[1])?),
+            protocol: Some(parts[1].parse()?),
             version_name: Some(parts[2].to_string()),
             favicon: None,
             full_extra: Some(json!({"legacy_version": 1})),
@@ -93,8 +92,8 @@ async fn single_ip_check(addr: &str, port: u16, stream: &mut TcpStream) -> Resul
         Ok(StatusPayload {
             mode: LEGACY,
             ping,
-            max_players: Some(util::parse_i64(parts[2])?),
-            player_count: Some(util::parse_i64(parts[1])?),
+            max_players: Some(parts[2].parse()?),
+            player_count: Some(parts[1].parse()?),
             players: None,
             motd: Some(MotdInfo::String(parts[0].to_string())),
             protocol: None,

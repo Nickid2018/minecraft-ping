@@ -4,7 +4,8 @@ use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::LazyLock;
 use trust_dns_resolver::{AsyncResolver, system_conf};
 
-const ADDRESS_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"^(.+):(\d+)$").ok());
+const ADDRESS_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(.+):(\d+)$").expect("Compile regex failed!"));
 
 pub async fn resolve_server_srv(addr: &str) -> Vec<String> {
     let (conf, opts) = system_conf::read_system_conf().expect("Could not read system conf");
@@ -39,7 +40,7 @@ pub async fn resolve_server_srv(addr: &str) -> Vec<String> {
 }
 
 pub fn sanitize_addr(addr: &str, default_port: u16) -> Result<(String, u16)> {
-    match ADDRESS_REGEX.as_ref().expect("Compile regex failed!").captures(addr) {
+    match ADDRESS_REGEX.captures(addr) {
         Some(captures) => Ok((captures[1].to_string(), captures[2].parse()?)),
         None => Ok((addr.to_string(), default_port)),
     }

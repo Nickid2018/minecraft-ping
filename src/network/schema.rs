@@ -1,5 +1,5 @@
+use anyhow::{Result, anyhow};
 use bytes::{Buf, BytesMut};
-use std::io::ErrorKind;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 
@@ -16,16 +16,13 @@ pub fn write_var_int(vec: &mut Vec<u8>, num: i32) {
     }
 }
 
-pub async fn read_var_int_stream(stream: &mut TcpStream) -> std::io::Result<i32> {
+pub async fn read_var_int_stream(stream: &mut TcpStream) -> Result<i32> {
     let mut result: i32 = 0;
     let mut offset = 0;
     loop {
         let num = stream.read_u8().await?;
         if offset > 5 {
-            return Err(std::io::Error::new(
-                ErrorKind::InvalidData,
-                "Invalid varint: Too long",
-            ));
+            return Err(anyhow!("Invalid varint: Too long"));
         }
         result |= i32::from(num & 0x7F) << (offset * 7);
         offset += 1;
@@ -36,16 +33,13 @@ pub async fn read_var_int_stream(stream: &mut TcpStream) -> std::io::Result<i32>
     Ok(result)
 }
 
-pub fn read_var_int_buf(buf: &mut BytesMut) -> std::io::Result<i32> {
+pub fn read_var_int_buf(buf: &mut BytesMut) -> Result<i32> {
     let mut result: i32 = 0;
     let mut offset = 0;
     loop {
         let num = buf.get_u8();
         if offset > 5 {
-            return Err(std::io::Error::new(
-                ErrorKind::InvalidData,
-                "Invalid varint: Too long",
-            ));
+            return Err(anyhow!("Invalid varint: Too long"));
         }
         result |= i32::from(num & 0x7F) << (offset * 7);
         offset += 1;
@@ -56,17 +50,14 @@ pub fn read_var_int_buf(buf: &mut BytesMut) -> std::io::Result<i32> {
     Ok(result)
 }
 
-pub fn read_string(buf: &mut BytesMut) -> std::io::Result<String> {
+pub fn read_string(buf: &mut BytesMut) -> Result<String> {
     let length = read_var_int_buf(buf)? as usize;
     if buf.remaining() < length {
-        return Err(std::io::Error::new(
-            ErrorKind::UnexpectedEof,
-            "Unexpected end of string",
-        ));
+        return Err(anyhow!("Unexpected end of string"));
     }
     let str = String::from_utf8(buf.split_to(length).to_vec());
     match str {
         Ok(s) => Ok(s),
-        Err(e) => Err(std::io::Error::new(ErrorKind::InvalidData, e)),
+        Err(e) => Err(anyhow!(e)),
     }
 }
