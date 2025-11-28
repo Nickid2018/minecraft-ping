@@ -1,9 +1,11 @@
 mod favicon;
 #[cfg(feature = "analyze-forge-info")]
 mod forge_info;
+mod game_mode;
 mod motd;
 mod ping;
 mod player;
+mod server_guid;
 mod version;
 
 use crate::analyze::favicon::FaviconArgs;
@@ -74,8 +76,12 @@ impl AnalyzerTools<'_> {
 
 #[derive(Debug, Clone, Eq, PartialEq, ValueEnum)]
 pub enum AvailableAnalyzers {
+    #[value(name = "+")]
+    AllDefaults,
     Ping,
     Version,
+    ServerGuid,
+    GameMode,
     Motd,
     Player,
     Favicon,
@@ -85,7 +91,7 @@ pub enum AvailableAnalyzers {
 
 #[derive(Args, Debug)]
 pub struct AnalyzerArgs {
-    /// Set analyzers can be enabled
+    /// Set analyzers can be enabled, '+' for enabling all default analyzers
     #[arg(short='e', long, value_parser, value_delimiter = ',', default_values = ["ping", "version", "motd", "player", "favicon"])]
     analyzers: Vec<AvailableAnalyzers>,
 
@@ -101,7 +107,14 @@ pub struct AnalyzerArgs {
 }
 
 pub fn sanitize_analyzer_args(args: &mut crate::BaseArgs) {
-    let analyzers = &args.analyzer_args.analyzers;
+    let analyzers = &mut args.analyzer_args.analyzers;
+    if analyzers.contains(&AvailableAnalyzers::AllDefaults) {
+        analyzers.push(AvailableAnalyzers::Ping);
+        analyzers.push(AvailableAnalyzers::Version);
+        analyzers.push(AvailableAnalyzers::Motd);
+        analyzers.push(AvailableAnalyzers::Player);
+        analyzers.push(AvailableAnalyzers::Favicon);
+    }
     if analyzers.contains(&AvailableAnalyzers::Motd) {
         sanitize_motd_args(args);
     }
@@ -116,6 +129,14 @@ pub fn init_analyzer_tools(args: &'_ AnalyzerArgs) -> AnalyzerTools<'_> {
 
     if args.analyzers.contains(&AvailableAnalyzers::Version) {
         analyzers.push(Box::new(version::Version {}));
+    }
+
+    if args.analyzers.contains(&AvailableAnalyzers::ServerGuid) {
+        analyzers.push(Box::new(server_guid::ServerGuid {}));
+    }
+
+    if args.analyzers.contains(&AvailableAnalyzers::GameMode) {
+        analyzers.push(Box::new(game_mode::GameMode {}));
     }
 
     if args.analyzers.contains(&AvailableAnalyzers::Motd) {
