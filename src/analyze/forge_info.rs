@@ -65,7 +65,7 @@ async fn try_analyze_encoded(data: &str, display_channels: bool) -> Result<()> {
 
         for _ in 0..ch_size {
             let path = read_string(&mut buffer)?;
-            let ver = read_var_int_buf(&mut buffer)?;
+            let ver = read_string(&mut buffer)?;
             let required = buffer.try_get_u8()? != 0;
             if !display_channels {
                 continue;
@@ -89,7 +89,7 @@ async fn try_analyze_encoded(data: &str, display_channels: bool) -> Result<()> {
     log::info!("Non-mod channels:");
     for _ in 0..non_mod_channels {
         let path = read_string(&mut buffer)?;
-        let ver = read_var_int_buf(&mut buffer)?;
+        let ver = read_string(&mut buffer)?;
         if buffer.try_get_u8()? != 0 {
             log::info!("  Channel* {} ({})", path, ver);
         } else {

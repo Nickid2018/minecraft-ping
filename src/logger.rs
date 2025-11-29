@@ -19,12 +19,17 @@ struct SimpleLogger {
 
 impl log::Log for SimpleLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
+        let meta_level = if metadata.target().starts_with("fast_socks5") {
+            Level::Trace
+        } else {
+            metadata.level()
+        };
         match self.level {
             LogLevel::TRACE => true,
-            LogLevel::DEBUG => metadata.level() <= Level::Debug,
-            LogLevel::INFO => metadata.level() <= Level::Info,
-            LogLevel::WARN => metadata.level() <= Level::Warn,
-            LogLevel::ERROR => metadata.level() <= Level::Error,
+            LogLevel::DEBUG => meta_level <= Level::Debug,
+            LogLevel::INFO => meta_level <= Level::Info,
+            LogLevel::WARN => meta_level <= Level::Warn,
+            LogLevel::ERROR => meta_level <= Level::Error,
             LogLevel::QUIET => false,
         }
     }
