@@ -4,7 +4,7 @@ use crate::mode::QueryMode;
 use async_trait::async_trait;
 use clap::Args;
 use colored::{ColoredString, Colorize};
-use regex::Regex;
+use regex_lite::Regex;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::sync::LazyLock;

@@ -1,13 +1,19 @@
 use crate::network::resolve::resolve_addr;
 use crate::network::util::generic_timeout;
 use anyhow::{Result, anyhow};
+use async_http_proxy::{
+    http_connect_tokio as http_proxy, http_connect_tokio_with_basic_auth as http_proxy_auth,
+};
 use clap::Args;
-use fast_socks5::client::Socks5Datagram;
-use proxied::{NetworkTarget, Proxy, ProxyKind};
+use fast_socks5::client::{Config, Socks5Datagram, Socks5Stream};
+use fast_socks5::util::target_addr::TargetAddr;
+use fast_socks5::{AuthenticationMethod, Socks5Command};
+use regex_lite::Regex;
+use std::cmp::PartialEq;
 use std::fmt::Display;
 use std::net::SocketAddr;
 use std::str::FromStr;
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 use std::time::Duration;
 use tokio::net::{TcpSocket, TcpStream, UdpSocket};
 use tokio::task::JoinSet;
@@ -20,30 +26,120 @@ pub struct ProxySettings {
     pub proxy: Option<String>,
 }
 
-static PROXY: OnceLock<Proxy> = OnceLock::new();
+const PROXY_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(http|https|socks5)://(?:(.+):(.+)@)?(.+?)(?::(\d+))?$")
+        .expect("Compile regex failed")
+});
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum ProxyType {
+    Http,
+    Socks5,
+}
+
+static PROXY_SETTING: OnceLock<(ProxyType, SocketAddr)> = OnceLock::new();
+static PROXY_CRED: OnceLock<(String, String)> = OnceLock::new();
 
 pub fn setup_proxy(proxy_settings: &ProxySettings) {
     if let Some(proxy) = proxy_settings.proxy.as_ref() {
-        let sanitized = proxy.replace("//", "");
-        match sanitized.parse() {
-            Ok(proxy) => {
-                PROXY.set(proxy).expect("Set proxy");
+        if let Some(matches) = PROXY_REGEX.captures(proxy) {
+            let scheme = matches.get(1).expect("Should have scheme").as_str();
+            let proxy_type = match scheme {
+                "socks5" => ProxyType::Socks5,
+                _ => ProxyType::Http,
+            };
+
+            let port = if let Some(port) = matches.get(5) {
+                match u16::from_str(port.as_str()) {
+                    Ok(port) => port,
+                    Err(e) => {
+                        log::warn!("Proxy port is invalid: {}", e);
+                        return;
+                    }
+                }
+            } else {
+                match scheme {
+                    "socks5" => 1080,
+                    "http" => 80,
+                    _ => 443,
+                }
+            };
+
+            if matches.get(2).is_some() {
+                PROXY_CRED
+                    .set((
+                        matches
+                            .get(2)
+                            .expect("Should have user")
+                            .as_str()
+                            .to_string(),
+                        matches
+                            .get(3)
+                            .expect("Should have password")
+                            .as_str()
+                            .to_string(),
+                    ))
+                    .expect("Should set proxy credentials");
+            };
+
+            if let Some(addr) =
+                resolve_addr(matches.get(4).expect("Should have host").as_str(), port).get(0)
+            {
+                PROXY_SETTING
+                    .set((proxy_type, *addr))
+                    .expect("Should be set");
+            } else {
+                log::warn!("Proxy cannot be resolved");
             }
-            Err(e) => {
-                log::warn!("Proxy setting is invalid: {}", e);
-            }
+        } else {
+            log::warn!("Proxy setting is invalid");
         }
     }
 }
 
-async fn proxy_tcp(proxy: &Proxy, host: &str, port: u16) -> Result<TcpStream> {
-    log::trace!("Using proxy {} to {}:{}", proxy, host, port);
-    Ok(proxy
-        .connect_tcp(NetworkTarget::Domain {
-            domain: host.to_string(),
-            port,
-        })
-        .await?)
+async fn setup_proxy_stream() -> Result<TcpStream> {
+    if let Some((_, addr)) = PROXY_SETTING.get() {
+        log::debug!("Setup proxy stream for {}", addr);
+        let stream: TcpStream = TcpStream::connect(addr).await?;
+        stream.set_nodelay(true)?;
+        stream.set_linger(None)?;
+        Ok(stream)
+    } else {
+        Err(anyhow!("Proxy setting is invalid"))
+    }
+}
+
+async fn proxy_tcp(host: &str, port: u16) -> Result<TcpStream> {
+    let mut stream: TcpStream = setup_proxy_stream().await?;
+    if let Some(proxy_type) = PROXY_SETTING.get().map(|p| p.0) {
+        match proxy_type {
+            ProxyType::Http => {
+                match PROXY_CRED.get() {
+                    Some((user, p)) => http_proxy_auth(&mut stream, host, port, user, p).await,
+                    None => http_proxy(&mut stream, host, port).await,
+                }?;
+            }
+            ProxyType::Socks5 => {
+                let auth = PROXY_CRED
+                    .get()
+                    .map(|(u, p)| AuthenticationMethod::Password {
+                        username: u.clone(),
+                        password: p.clone(),
+                    });
+                let config = Config::default();
+                let mut proxied = Socks5Stream::use_stream(&mut stream, auth, config).await?;
+                proxied
+                    .request(
+                        Socks5Command::TCPConnect,
+                        TargetAddr::Domain(host.to_string(), port),
+                    )
+                    .await?;
+            }
+        }
+        Ok(stream)
+    } else {
+        Err(anyhow!("Proxy setting is invalid"))
+    }
 }
 
 async fn no_proxy_tcp0(addr: SocketAddr) -> Result<TcpStream> {
@@ -66,8 +162,8 @@ async fn no_proxy_tcp(addr: SocketAddr) -> Result<TcpStream> {
 
 pub async fn connect_tcp(addr: &str, port: u16, time: Duration) -> Result<Vec<TcpStream>> {
     let mut succeed = vec![];
-    if let Some(proxy) = PROXY.get() {
-        succeed.push(generic_timeout(time, proxy_tcp(proxy, addr, port), "Connection").await?);
+    if PROXY_SETTING.get().is_some() {
+        succeed.push(generic_timeout(time, proxy_tcp(addr, port), "Connection").await?);
     } else {
         let addrs = resolve_addr(addr, port);
         let mut join_set = JoinSet::new();
@@ -154,21 +250,11 @@ pub async fn udp_socket(
     time: Duration,
 ) -> Result<Vec<(UdpTarget, ProxyableUdpSocket)>> {
     let mut succeed: Vec<(UdpTarget, _)> = vec![];
-    if let Some(proxy) = PROXY.get()
-        && proxy.kind == ProxyKind::Socks5
+    if let Some((proxy_type, _)) = PROXY_SETTING.get()
+        && *proxy_type == ProxyType::Socks5
     {
-        let resolved_addr = match &proxy.is_dns_addr() {
-            true => *resolve_addr(&proxy.addr, proxy.port)
-                .get(0)
-                .ok_or(anyhow!("Unable to resolve proxy address"))?,
-            false => SocketAddr::from_str(&format!("{}:{}", proxy.addr, proxy.port))?,
-        };
-
-        let stream: TcpStream = TcpStream::connect(resolved_addr).await?;
-        stream.set_nodelay(true)?;
-        stream.set_linger(None)?;
-
-        let proxied_datagram = if let Some(cred) = &proxy.creds {
+        let stream: TcpStream = setup_proxy_stream().await?;
+        let proxied_datagram = if let Some(cred) = PROXY_CRED.get() {
             Socks5Datagram::bind_with_password(stream, "0.0.0.0:0", &cred.0, &cred.1).await?
         } else {
             Socks5Datagram::bind(stream, "0.0.0.0:0").await?

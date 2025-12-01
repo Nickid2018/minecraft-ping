@@ -1,15 +1,16 @@
 use anyhow::Result;
-use regex::Regex;
+use hickory_resolver::Resolver;
+use regex_lite::Regex;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::LazyLock;
-use trust_dns_resolver::{AsyncResolver, system_conf};
 
 const ADDRESS_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^(.+):(\d+)$").expect("Compile regex failed!"));
 
 pub async fn resolve_server_srv(addr: &str) -> Vec<String> {
-    let (conf, opts) = system_conf::read_system_conf().expect("Could not read system conf");
-    let raw_record = match AsyncResolver::tokio(conf, opts)
+    let raw_record = match Resolver::builder_tokio()
+        .expect("Could not create resolver")
+        .build()
         .srv_lookup(format!("_minecraft._tcp.{}", addr))
         .await
     {
